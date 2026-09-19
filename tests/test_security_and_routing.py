@@ -34,3 +34,25 @@ def test_policy_question_with_only_ticket_evidence_escalates():
         [_r("TICKET-03", "ticket", 0.62, "Escalated")],
     )
     assert d.escalate
+
+
+def test_authoritative_security_prohibition_does_not_escalate():
+    d = ConfidenceEngine().assess(
+        "Support asked me to send my full card number and CVV. Should I?",
+        [
+            _r(
+                "POLICY-10",
+                "policy",
+                0.41,
+                content="Support agents must not request complete card numbers, CVV codes, PINs, banking passwords, or authentication codes.",
+            ),
+            _r(
+                "POLICY-07",
+                "policy",
+                0.39,
+                content="LearnForge Support will never request a user's complete password, payment-card security code, or authentication code.",
+            ),
+        ],
+    )
+    assert d.escalate is False
+    assert d.score >= 0.62
