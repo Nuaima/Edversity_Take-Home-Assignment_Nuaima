@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import re
 
-from openai import OpenAI
+from google import genai
+from google.genai import types
 
 from app.schemas import RetrievedChunk
 
@@ -21,9 +22,9 @@ Rules:
 
 
 class AnswerGenerator:
-    def __init__(self, api_key: str | None, model: str, base_url: str):
+    def __init__(self, api_key: str | None, model: str):
         self.model = model
-        self.client = OpenAI(api_key=api_key, base_url=base_url) if api_key else None
+        self.client = genai.Client(api_key=api_key) if api_key else None
 
     @staticmethod
     def _context(results: list[RetrievedChunk]) -> str:
@@ -48,22 +49,19 @@ class AnswerGenerator:
             prompt += "Answer the user's question using only the context above.\n"
 
         try:
-            response = self.client.chat.completions.create(
+            response = self.client.models.generate_content(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.1,
-                max_tokens=450,
-                timeout=20.0,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_PROMPT,
+                    temperature=0.1,
+                    max_output_tokens=450,
+                ),
             )
-            text = (response.choices[0].message.content or "").strip()
+            text = (response.text or "").strip()
             if text:
                 return text
         except Exception:
-            # Provider/network failure should degrade safely rather than take
-            # down support. Production would log this through structured telemetry.
             pass
 
         return self._extractive_fallback(query, results, escalation_reason)
@@ -91,8 +89,6 @@ class AnswerGenerator:
             if not p.upper().startswith(("QUESTION:", "USER:", "STATUS:"))
         ]
 
-        # A few short paragraphs are more useful than a single excerpt for
-        # troubleshooting FAQs, but keep fallback output bounded.
         selected = []
         total = 0
         for paragraph in useful:
