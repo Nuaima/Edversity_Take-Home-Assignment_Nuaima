@@ -1,0 +1,128 @@
+[
+  {
+    "id": "E01",
+    "question": "Can I get a refund after 10 days for an individual course?",
+    "expected_sources": [
+      "POLICY-02",
+      "FAQ-02"
+    ],
+    "should_escalate": false,
+    "category": "answerable-policy"
+  },
+  {
+    "id": "E02",
+    "question": "An old help article says refunds are only available for 7 days. Is that still true?",
+    "expected_sources": [
+      "POLICY-02"
+    ],
+    "should_escalate": false,
+    "category": "stale-policy"
+  },
+  {
+    "id": "E03",
+    "question": "Can I download a course to my laptop and watch it offline?",
+    "expected_sources": [
+      "FAQ-07",
+      "POLICY-04",
+      "TICKET-15"
+    ],
+    "should_escalate": false,
+    "category": "stale-product-doc"
+  },
+  {
+    "id": "E04",
+    "question": "Cancel my LearnForge.",
+    "expected_sources": [
+      "TICKET-07",
+      "POLICY-02"
+    ],
+    "should_escalate": true,
+    "category": "ambiguous-intent"
+  },
+  {
+    "id": "E05",
+    "question": "I bought my course 21 days ago but the promotion promised a 30-day money-back guarantee.",
+    "expected_sources": [
+      "TICKET-03",
+      "POLICY-02",
+      "FAQ-02"
+    ],
+    "should_escalate": true,
+    "category": "purchase-specific-exception"
+  },
+  {
+    "id": "E06",
+    "question": "My failed card payment is still showing as pending. Did LearnForge take the money?",
+    "expected_sources": [
+      "POLICY-10",
+      "FAQ-04",
+      "TICKET-14"
+    ],
+    "should_escalate": false,
+    "category": "billing"
+  },
+  {
+    "id": "E07",
+    "question": "Is Internet Explorer a supported browser?",
+    "expected_sources": [
+      "POLICY-09"
+    ],
+    "should_escalate": false,
+    "category": "obsolete-doc"
+  },
+  {
+    "id": "E08",
+    "question": "Can my brother use my individual LearnForge account?",
+    "expected_sources": [
+      "FAQ-10",
+      "POLICY-07",
+      "POLICY-08"
+    ],
+    "should_escalate": false,
+    "category": "account-policy"
+  },
+  {
+    "id": "E09",
+    "question": "My annual subscription page said cancel within 14 days for a full refund. I renewed last week. Refund me.",
+    "expected_sources": [
+      "TICKET-08",
+      "POLICY-02",
+      "POLICY-01"
+    ],
+    "should_escalate": true,
+    "category": "conflicting-terms"
+  },
+  {
+    "id": "E10",
+    "question": "I finished every video. Why is my certificate missing?",
+    "expected_sources": [
+      "FAQ-06",
+      "POLICY-06",
+      "TICKET-09"
+    ],
+    "should_escalate": false,
+    "category": "course-completion"
+  },
+  {
+    "id": "E11",
+    "question": "Support asked me to send my full card number and CVV. Should I?",
+    "expected_sources": [
+      "POLICY-10",
+      "POLICY-07",
+      "FAQ-15"
+    ],
+    "should_escalate": false,
+    "category": "security"
+  },
+  {
+    "id": "E12",
+    "question": "The chemistry lesson has no captions. What can I do?",
+    "expected_sources": [
+      "POLICY-03",
+      "FAQ-14",
+      "TICKET-12"
+    ],
+    "should_escalate": false,
+    "category": "accessibility"
+  }
+]
