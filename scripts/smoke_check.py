@@ -1,4 +1,11 @@
+from __future__ import annotations
+
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from app.ingestion import load_corpus
 from app.query import build_retrieval_query
@@ -6,7 +13,7 @@ from app.schemas import ChatTurn
 
 
 def main() -> None:
-    corpus = load_corpus(Path("data"))
+    corpus = load_corpus(ROOT / "data")
     assert len(corpus) == 40
     assert sum(x.source_type == "faq" for x in corpus) == 15
     assert sum(x.source_type == "policy" for x in corpus) == 10
