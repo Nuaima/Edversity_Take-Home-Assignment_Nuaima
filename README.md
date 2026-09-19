@@ -9,7 +9,7 @@ A production-minded RAG customer-support prototype over the supplied LearnForge 
 - Hybrid retrieval with SentenceTransformers + FAISS plus lexical overlap.
 - Metadata-aware re-ranking: current policy > FAQ > historical ticket when semantic scores are close.
 - Multi-turn context for short follow-up questions.
-- Grounded generation with Groq through its OpenAI-compatible API.
+- Grounded generation with Gemini using Google's official `google-genai` Python SDK.
 - Conservative extractive fallback if no API key is configured.
 - Explicit stale/outdated guidance handling.
 - Confidence/risk gate before generation.
@@ -29,7 +29,7 @@ flowchart LR
     V --> R[Top-K Retrieval]
     R --> M[Authority + Freshness Re-rank]
     M --> C{Confidence / Risk Gate}
-    C -->|clear| G[Grounded Groq Generation]
+    C -->|clear| G[Grounded Gemini Generation]
     C -->|ambiguous| A[Clarifying Question]
     C -->|weak / conflicting / account-specific| X[Human Escalation]
     X --> G
@@ -43,9 +43,10 @@ Visual diagram: [`docs/system-design.svg`](docs/system-design.svg). More detail:
 The supplied data deliberately contains old instructions and unresolved support cases. A historical ticket can be semantically similar to a current policy while being a poor authority for a new user. Retrieval therefore uses cosine similarity as the main signal, with modest metadata priors:
 
 ```text
-rerank_score = 0.78 * semantic_similarity
-             + 0.14 * source_authority
-             + 0.08 * freshness
+rerank_score = 0.72 * semantic_similarity
+             + 0.12 * lexical_overlap
+             + 0.10 * source_authority
+             + 0.06 * freshness
 ```
 
 Metadata breaks close ties without allowing an irrelevant policy to beat a much more relevant FAQ. The prompt separately instructs the model to treat text marked old, archived, obsolete, retired, or outdated as non-authoritative.
@@ -78,11 +79,11 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Add a Groq API key to `.env`:
+Add a Gemini API key from Google AI Studio to `.env`:
 
 ```env
-GROQ_API_KEY=your_key_here
-GROQ_MODEL=llama-3.3-70b-versatile
+GEMINI_API_KEY=your_key_here
+GEMINI_MODEL=gemini-3.8-flash
 ```
 
 If the key is omitted, the app still runs in conservative extractive-fallback mode, so reviewers can inspect retrieval, confidence and escalation behavior without credentials.
@@ -156,6 +157,20 @@ The assistant does not resolve purchase-specific contradictions requiring facts 
 ### LLM/provider failure
 Without an API key, the system falls back to a conservative extract from the strongest retrieved source. A production service would apply timeouts, retries, metrics and alerting around provider failures.
 
+## Measured evaluation results
+
+Measured in GitHub Codespaces on the included 12-case labelled evaluation set:
+
+| Metric | Result |
+|---|---:|
+| Retrieval Hit@3 | **100% (12/12)** |
+| Escalation accuracy | **100% (12/12)** |
+| Escalation precision | **100%** |
+| Escalation recall | **100%** |
+| Unit tests | **10/10 passed** |
+
+These results are intentionally scoped to the curated benchmark in `eval/eval_dataset.json`; they are not presented as a production-wide accuracy claim. The benchmark covers current policy, stale documentation, ambiguity, billing, accessibility, security, and escalation behavior.
+
 ## Evaluation plan
 
 `eval/eval_dataset.json` includes 12 representative cases across current policy, stale docs, ambiguity, billing, accessibility and escalation.
@@ -214,7 +229,7 @@ The included tests check corpus completeness, stale refund-language detection, m
 
 ## Known limitations
 
-This is intentionally a focused take-home prototype, not a complete support platform. There is no hybrid retrieval, cross-encoder reranking, persistent chat store, admin ingestion UI or helpdesk-ticket integration. Those are deliberate trade-offs to keep the implementation easy to run, inspect and reason about.
+This is intentionally a focused take-home prototype, not a complete support platform. There is no full BM25 engine, cross-encoder reranking, persistent chat store, admin ingestion UI or helpdesk-ticket integration. Those are deliberate trade-offs to keep the implementation easy to run, inspect and reason about.
 
 ## Reviewer quick check
 
