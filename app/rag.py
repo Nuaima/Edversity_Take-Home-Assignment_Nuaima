@@ -43,11 +43,28 @@ class RAGService:
         else:
             answer = self.generator.generate(request.message, results, decision.reason if decision.escalate else None)
 
+        # Do not display weak neighboring results as citations merely because
+        # FAISS returned them in top-k. Keep sources close to the best semantic hit.
+        if results:
+            citation_floor = max(
+                self.confidence.min_similarity,
+                results[0].similarity - 0.10,
+            )
+            citation_results = [r for r in results if r.similarity >= citation_floor][:3]
+        else:
+            citation_results = []
+
         citations = [
             Citation(document_id=r.document_id, title=r.title, source_type=r.source_type)
-            for r in results[:3]
+            for r in citation_results
         ]
-        label = "HIGH" if decision.score >= 0.75 and not decision.escalate else "MEDIUM" if decision.score >= 0.55 else "LOW"
+
+        if decision.escalate:
+            label = "LOW"
+        elif decision.score >= 0.62:
+            label = "HIGH"
+        else:
+            label = "MEDIUM"
 
         return ChatResponse(
             answer=answer,
