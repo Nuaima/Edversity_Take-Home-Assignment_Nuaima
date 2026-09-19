@@ -86,6 +86,23 @@ def main() -> None:
     out.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     print(json.dumps(metrics, indent=2))
+
+    failures = [row for row in rows if not row["escalation_correct"] or not row["source_hit_at_3"]]
+    if failures:
+        print("\nMismatched cases:")
+        for row in failures:
+            print(
+                f"- {row['id']} [{row['category']}] "
+                f"source_hit={row['source_hit_at_3']} "
+                f"expected_escalation={row['expected_escalation']} "
+                f"actual_escalation={row['actual_escalation']} "
+                f"confidence={row['confidence']} "
+                f"reason={row['reason']} "
+                f"sources={row['returned_sources']}"
+            )
+    else:
+        print("\nAll labelled cases matched expected retrieval/escalation behavior.")
+
     print(f"Saved detailed report to {out.relative_to(ROOT)}")
 
 
