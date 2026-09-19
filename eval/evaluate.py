@@ -1,7 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+os.chdir(ROOT)
 
 from app.config import settings
 from app.rag import RAGService
@@ -13,7 +20,7 @@ def _safe_div(num: int, den: int) -> float:
 
 
 def main() -> None:
-    dataset = json.loads(Path("eval/eval_dataset.json").read_text())
+    dataset = json.loads((ROOT / "eval" / "eval_dataset.json").read_text())
     service = RAGService(
         settings.data_dir,
         settings.storage_dir,
@@ -75,11 +82,11 @@ def main() -> None:
     }
 
     report = {"metrics": metrics, "cases": rows}
-    out = Path("eval/latest_report.json")
+    out = ROOT / "eval" / "latest_report.json"
     out.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     print(json.dumps(metrics, indent=2))
-    print(f"Saved detailed report to {out}")
+    print(f"Saved detailed report to {out.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":
