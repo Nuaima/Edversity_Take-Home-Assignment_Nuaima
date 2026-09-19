@@ -10,7 +10,7 @@ User / Streamlit Chat
   -> Confidence / Risk Gate
       -> Ambiguous: Ask Clarifying Question
       -> Weak/conflicting/account-specific: Human Escalation
-      -> Sufficient evidence: Grounded Groq Generation
+      -> Sufficient evidence: Grounded Gemini Generation
   -> Answer + Sources + Confidence
 
 Knowledge Base (FAQs + Policies + Tickets) -> Markdown Ingestion -> Embeddings + Metadata -> FAISS
