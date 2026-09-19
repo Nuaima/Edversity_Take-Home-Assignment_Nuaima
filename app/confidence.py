@@ -7,9 +7,18 @@ from app.schemas import RetrievedChunk
 
 
 AMBIGUOUS_CANCEL = re.compile(r"\b(cancel|stop)\s+(my\s+)?(learnforge|payment|it|this)\b", re.I)
-PROMO_EXCEPTION = re.compile(r"\b(promo|promotion|voucher|30[- ]?day|guarantee|special offer|terms when i bought)\b", re.I)
+PROMO_EXCEPTION = re.compile(
+    r"\b(promo|promotion|voucher|30[- ]?day|guarantee|special offer|"
+    r"terms when i bought|page said|website said|checkout said|cancellation page)\b",
+    re.I,
+)
 ACCOUNT_SPECIFIC = re.compile(
-    r"\b(my order|my account|my charge|my payment|transaction|receipt|restore|manually|transfer|refund me|cancel it)\b",
+    r"\b(my order|my account|my charge|my payment|transaction|receipt|restore|"
+    r"manually|transfer|refund me|cancel it|my subscription|my purchase)\b",
+    re.I,
+)
+POLICY_SENSITIVE = re.compile(
+    r"\b(refund|subscription|cancel|cancellation|charge|payment|transfer|billing)\b",
     re.I,
 )
 
@@ -35,16 +44,17 @@ class ConfidenceEngine:
         sims = [max(0.0, r.similarity) for r in results[:3]]
         mean_top = sum(sims) / len(sims)
 
-        # The strongest evidence should dominate confidence. Averaging all top-3
-        # similarities made obvious FAQ matches look artificially uncertain when
-        # ranks 2-3 were merely neighboring topics.
+        # Strongest evidence dominates; rerank quality and authority provide
+        # smaller calibration signals. The score is a routing heuristic, not a
+        # probability of factual correctness.
         score = max(
             0.0,
             min(
                 1.0,
-                0.65 * max(0.0, top.similarity)
+                0.55 * max(0.0, top.similarity)
                 + 0.15 * mean_top
-                + 0.20 * top.authority,
+                + 0.15 * max(0.0, top.rerank_score)
+                + 0.15 * top.authority,
             ),
         )
 
@@ -63,25 +73,32 @@ class ConfidenceEngine:
             return ConfidenceDecision(
                 min(score, 0.56),
                 True,
-                "Purchase-specific promotional terms may override the standard policy and require human review.",
+                "Purchase-specific wording may override the general policy and requires human verification.",
             )
 
         escalated_ticket = any(
-            (r.status and "escalat" in r.status.lower()) or "policy ambiguity" in r.content.lower()
+            (r.status and "escalat" in r.status.lower())
+            or "policy ambiguity" in r.content.lower()
             for r in results[:3]
         )
         if escalated_ticket and ACCOUNT_SPECIFIC.search(query):
             return ConfidenceDecision(
                 min(score, 0.55),
                 True,
-                "The retrieved history shows this type of account-specific case requires human verification.",
+                "The retrieved history shows this account-specific case requires human verification.",
             )
 
-        if top.source_type == "ticket" and not any(r.source_type in {"policy", "faq"} for r in results[:3]):
+        # Policy-style questions supported only by tickets are unsafe because
+        # tickets are historical examples, not authoritative policy.
+        if (
+            POLICY_SENSITIVE.search(query)
+            and top.source_type == "ticket"
+            and not any(r.source_type in {"policy", "faq"} for r in results[:3])
+        ):
             return ConfidenceDecision(
                 min(score, 0.54),
                 True,
-                "Only historical ticket evidence was retrieved; current policy should be verified.",
+                "Only historical ticket evidence was retrieved for a policy-sensitive question.",
             )
 
         if score < self.min_confidence:
