@@ -28,9 +28,8 @@ def main() -> None:
         settings.top_k,
         settings.min_similarity,
         settings.min_confidence,
-        settings.groq_api_key,
-        settings.groq_model,
-        settings.groq_base_url,
+        settings.gemini_api_key,
+        settings.gemini_model,
     )
 
     rows = []
