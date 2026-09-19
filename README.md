@@ -67,7 +67,7 @@ requirements.txt
 
 ## Setup
 
-Python 3.10+ is recommended.
+Python **3.11** is recommended and pinned for GitHub Codespaces via `.devcontainer/devcontainer.json`.
 
 ```bash
 git clone https://github.com/Nuaima/Edversity_Take-Home-Assignment_Nuaima.git
@@ -75,6 +75,7 @@ cd Edversity_Take-Home-Assignment_Nuaima
 python -m venv .venv
 # Windows: .venv\Scripts\activate
 # macOS/Linux: source .venv/bin/activate
+python --version  # should show Python 3.11.x
 pip install -r requirements.txt
 cp .env.example .env
 ```
