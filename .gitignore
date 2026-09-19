@@ -7,3 +7,4 @@ __pycache__/
 .DS_Store
 storage/*.faiss
 storage/*.jsonl
+eval/latest_report.json
