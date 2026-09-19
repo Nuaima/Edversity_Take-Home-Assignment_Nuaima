@@ -21,9 +21,8 @@ def load_service() -> RAGService:
         top_k=settings.top_k,
         min_similarity=settings.min_similarity,
         min_confidence=settings.min_confidence,
-        groq_api_key=settings.groq_api_key,
-        groq_model=settings.groq_model,
-        groq_base_url=settings.groq_base_url,
+        gemini_api_key=settings.gemini_api_key,
+        gemini_model=settings.gemini_model,
     )
 
 
