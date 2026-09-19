@@ -34,8 +34,19 @@ class ConfidenceEngine:
         top = results[0]
         sims = [max(0.0, r.similarity) for r in results[:3]]
         mean_top = sum(sims) / len(sims)
-        authority = sum(r.authority for r in results[:3]) / min(3, len(results))
-        score = max(0.0, min(1.0, 0.72 * mean_top + 0.28 * authority))
+
+        # The strongest evidence should dominate confidence. Averaging all top-3
+        # similarities made obvious FAQ matches look artificially uncertain when
+        # ranks 2-3 were merely neighboring topics.
+        score = max(
+            0.0,
+            min(
+                1.0,
+                0.65 * max(0.0, top.similarity)
+                + 0.15 * mean_top
+                + 0.20 * top.authority,
+            ),
+        )
 
         if top.similarity < self.min_similarity:
             return ConfidenceDecision(score, True, "Retrieved evidence is too weak to answer reliably.")
@@ -68,7 +79,9 @@ class ConfidenceEngine:
 
         if top.source_type == "ticket" and not any(r.source_type in {"policy", "faq"} for r in results[:3]):
             return ConfidenceDecision(
-                min(score, 0.54), True, "Only historical ticket evidence was retrieved; current policy should be verified."
+                min(score, 0.54),
+                True,
+                "Only historical ticket evidence was retrieved; current policy should be verified.",
             )
 
         if score < self.min_confidence:
