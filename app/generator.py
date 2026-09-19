@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from openai import OpenAI
 
 from app.schemas import RetrievedChunk
@@ -63,12 +65,23 @@ class AnswerGenerator:
             return "I don't have enough information in the LearnForge knowledge base to answer that safely. Please contact Support."
 
         top = results[0]
-        body = top.content
+        body = top.content.strip()
+
+        # FAQ records contain QUESTION/ANSWER labels. In fallback mode, surface
+        # the answer naturally rather than exposing corpus formatting.
+        if top.source_type == "faq" and "ANSWER:" in body:
+            body = body.split("ANSWER:", 1)[1].strip()
+
         paragraphs = [p.strip() for p in body.split("\n\n") if p.strip()]
-        useful = [p for p in paragraphs if not p.upper().startswith(("QUESTION:", "USER:", "AGENT:", "STATUS:"))]
-        excerpt = useful[0] if useful else paragraphs[0]
+        useful = [
+            re.sub(r"^(QUESTION|ANSWER|USER|AGENT|STATUS):\s*", "", p, flags=re.I).strip()
+            for p in paragraphs
+            if not p.upper().startswith(("QUESTION:", "USER:", "STATUS:"))
+        ]
+        excerpt = next((p for p in useful if p), paragraphs[0] if paragraphs else body)
         excerpt = excerpt[:700].strip()
-        answer = f"Based on {top.document_id}, {excerpt}"
+
+        answer = excerpt
         if escalation_reason:
             answer += f"\n\nHuman Support review is recommended because {escalation_reason.lower()}"
         return answer
