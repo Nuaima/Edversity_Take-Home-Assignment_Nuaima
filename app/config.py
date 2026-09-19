@@ -10,9 +10,8 @@ class Settings(BaseSettings):
     top_k: int = 5
     min_similarity: float = 0.34
     min_confidence: float = 0.58
-    groq_api_key: str | None = None
-    groq_model: str = "llama-3.3-70b-versatile"
-    groq_base_url: str = "https://api.groq.com/openai/v1"
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-3.8-flash"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
