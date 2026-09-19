@@ -18,9 +18,8 @@ class RAGService:
         top_k: int,
         min_similarity: float,
         min_confidence: float,
-        groq_api_key: str | None,
-        groq_model: str,
-        groq_base_url: str,
+        gemini_api_key: str | None,
+        gemini_model: str,
     ):
         self.retriever = KnowledgeRetriever(
             data_dir=data_dir,
@@ -28,7 +27,7 @@ class RAGService:
             config=RetrieverConfig(embedding_model=embedding_model, top_k=top_k),
         )
         self.confidence = ConfidenceEngine(min_similarity=min_similarity, min_confidence=min_confidence)
-        self.generator = AnswerGenerator(groq_api_key, groq_model, groq_base_url)
+        self.generator = AnswerGenerator(gemini_api_key, gemini_model)
 
     def answer(self, request: ChatRequest) -> ChatResponse:
         retrieval_query = build_retrieval_query(request.message, request.history)
