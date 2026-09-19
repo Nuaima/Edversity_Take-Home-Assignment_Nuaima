@@ -12,10 +12,11 @@ Rules:
 1. Never invent LearnForge policy, eligibility, account state, transaction state, or actions performed.
 2. Prefer current POLICY sources over FAQs when they conflict; use tickets only as historical examples.
 3. Treat text explicitly described as old, archived, obsolete, retired, or outdated as non-authoritative.
-4. If the evidence is conditional, preserve the condition instead of turning it into a guarantee.
-5. If the case requires purchase/account verification or conflicting purchase-specific terms, recommend human Support.
-6. Do not ask for passwords, CVV, PIN, full card numbers, or authentication codes.
-7. Keep the answer concise and practical. Do not fabricate citations; source labels are added separately by the application.
+4. If evidence is conditional, preserve the condition instead of turning it into a guarantee.
+5. If a case requires purchase/account verification or purchase-specific terms, recommend human Support.
+6. Never ask for passwords, CVV, PIN, full card numbers, or authentication codes.
+7. Keep the answer concise and practical.
+8. Do not write source IDs in the prose; the application attaches verified citations separately.
 """
 
 
@@ -40,35 +41,46 @@ class AnswerGenerator:
         prompt = f"User question:\n{query}\n\nKnowledge-base context:\n{self._context(results)}\n\n"
         if escalation_reason:
             prompt += (
-                "The confidence layer marked this case for human review. Explain what the current knowledge base can "
-                f"safely say, then clearly recommend Support review. Reason: {escalation_reason}\n"
+                "This case is routed for human review. State only what the current knowledge base safely establishes, "
+                f"then recommend Support review. Routing reason: {escalation_reason}\n"
             )
         else:
             prompt += "Answer the user's question using only the context above.\n"
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.1,
-            max_tokens=450,
-        )
-        return (response.choices[0].message.content or "").strip()
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.1,
+                max_tokens=450,
+                timeout=20.0,
+            )
+            text = (response.choices[0].message.content or "").strip()
+            if text:
+                return text
+        except Exception:
+            # Provider/network failure should degrade safely rather than take
+            # down support. Production would log this through structured telemetry.
+            pass
+
+        return self._extractive_fallback(query, results, escalation_reason)
 
     @staticmethod
     def _extractive_fallback(
         query: str, results: list[RetrievedChunk], escalation_reason: str | None
     ) -> str:
         if not results:
-            return "I don't have enough information in the LearnForge knowledge base to answer that safely. Please contact Support."
+            return (
+                "I don't have enough information in the LearnForge knowledge base "
+                "to answer that safely. Please contact Support."
+            )
 
         top = results[0]
         body = top.content.strip()
 
-        # FAQ records contain QUESTION/ANSWER labels. In fallback mode, surface
-        # the answer naturally rather than exposing corpus formatting.
         if top.source_type == "faq" and "ANSWER:" in body:
             body = body.split("ANSWER:", 1)[1].strip()
 
@@ -78,10 +90,22 @@ class AnswerGenerator:
             for p in paragraphs
             if not p.upper().startswith(("QUESTION:", "USER:", "STATUS:"))
         ]
-        excerpt = next((p for p in useful if p), paragraphs[0] if paragraphs else body)
-        excerpt = excerpt[:700].strip()
 
-        answer = excerpt
+        # A few short paragraphs are more useful than a single excerpt for
+        # troubleshooting FAQs, but keep fallback output bounded.
+        selected = []
+        total = 0
+        for paragraph in useful:
+            if not paragraph:
+                continue
+            if selected and total + len(paragraph) > 900:
+                break
+            selected.append(paragraph)
+            total += len(paragraph)
+            if len(selected) >= 3:
+                break
+
+        answer = "\n\n".join(selected) if selected else (paragraphs[0] if paragraphs else body)
         if escalation_reason:
             answer += f"\n\nHuman Support review is recommended because {escalation_reason.lower()}"
         return answer
