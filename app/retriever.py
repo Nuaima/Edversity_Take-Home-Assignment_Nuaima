@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,11 +18,36 @@ class RetrieverConfig:
     top_k: int = 5
 
 
-class KnowledgeRetriever:
-    """Local FAISS retriever with metadata-aware re-ranking.
+_STOPWORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "but", "by", "can", "do",
+    "for", "from", "how", "i", "if", "in", "is", "it", "my", "of", "on",
+    "or", "the", "to", "was", "what", "when", "where", "why", "with", "you",
+    "your",
+}
 
-    Semantic similarity gets most of the weight, but current policies/FAQs are
-    deliberately preferred over historical tickets when scores are close.
+
+def _tokens(text: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", text.lower())
+        if len(token) > 1 and token not in _STOPWORDS
+    }
+
+
+def _lexical_overlap(query: str, chunk: KnowledgeChunk) -> float:
+    q = _tokens(query)
+    d = _tokens(f"{chunk.title} {chunk.content}")
+    if not q or not d:
+        return 0.0
+    return len(q & d) / math.sqrt(len(q) * len(d))
+
+
+class KnowledgeRetriever:
+    """Dense FAISS retrieval plus transparent lexical/metadata re-ranking.
+
+    Dense similarity remains the dominant signal. Small lexical, authority and
+    freshness priors improve exact policy/FAQ matches and make the ranking more
+    robust to the intentionally stale historical tickets in the assignment.
     """
 
     def __init__(self, data_dir: Path, storage_dir: Path, config: RetrieverConfig):
@@ -52,14 +79,24 @@ class KnowledgeRetriever:
         query_vector = self.model.encode(
             [query], normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False
         ).astype("float32")
-        similarities, indices = self.index.search(query_vector, min(k * 2, len(self.chunks)))
+
+        # Pull a wider dense candidate set, then re-rank locally. This is a
+        # lightweight hybrid approach without adding BM25 infrastructure.
+        candidate_k = min(max(k * 4, 12), len(self.chunks))
+        similarities, indices = self.index.search(query_vector, candidate_k)
 
         candidates: list[RetrievedChunk] = []
         for similarity, idx in zip(similarities[0], indices[0]):
             if idx < 0:
                 continue
             chunk = self.chunks[int(idx)]
-            rerank = 0.78 * float(similarity) + 0.14 * chunk.authority + 0.08 * chunk.freshness
+            lexical = _lexical_overlap(query, chunk)
+            rerank = (
+                0.72 * float(similarity)
+                + 0.12 * lexical
+                + 0.10 * chunk.authority
+                + 0.06 * chunk.freshness
+            )
             candidates.append(
                 RetrievedChunk(
                     **chunk.model_dump(),
