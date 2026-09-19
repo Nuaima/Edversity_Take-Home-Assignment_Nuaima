@@ -21,6 +21,16 @@ POLICY_SENSITIVE = re.compile(
     r"\b(refund|subscription|cancel|cancellation|charge|payment|transfer|billing)\b",
     re.I,
 )
+SECURITY_SECRET = re.compile(
+    r"\b(cvv|cvc|pin|password|authentication code|auth code|full card|complete card|"
+    r"card number|banking password)\b",
+    re.I,
+)
+SECURITY_PROHIBITION = re.compile(
+    r"\b(never|must not|do not|don't|should not)\b.{0,120}"
+    r"\b(cvv|cvc|pin|password|authentication code|auth code|full card|complete card|card number)\b",
+    re.I | re.S,
+)
 
 
 @dataclass
@@ -87,6 +97,18 @@ class ConfidenceEngine:
                 True,
                 "The retrieved history shows this account-specific case requires human verification.",
             )
+
+        # Security credential questions are a special high-certainty case:
+        # if authoritative current sources explicitly prohibit requesting the
+        # secret, answer the prohibition instead of escalating merely because
+        # the embedding score is modest. This is evidence-based, not a keyword
+        # bypass: the retrieved source text itself must contain the prohibition.
+        authoritative_security_evidence = [
+            r for r in results[:3]
+            if r.source_type in {"policy", "faq"} and SECURITY_PROHIBITION.search(r.content)
+        ]
+        if SECURITY_SECRET.search(query) and authoritative_security_evidence:
+            return ConfidenceDecision(max(score, 0.66), False, None)
 
         # Policy-style questions supported only by tickets are unsafe because
         # tickets are historical examples, not authoritative policy.
