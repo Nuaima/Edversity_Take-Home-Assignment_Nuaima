@@ -6,7 +6,7 @@ A production-minded RAG customer-support prototype over the supplied LearnForge 
 
 ## What it demonstrates
 
-- Semantic retrieval with SentenceTransformers + FAISS.
+- Hybrid retrieval with SentenceTransformers + FAISS plus lexical overlap.
 - Metadata-aware re-ranking: current policy > FAQ > historical ticket when semantic scores are close.
 - Multi-turn context for short follow-up questions.
 - Grounded generation with Groq through its OpenAI-compatible API.
@@ -36,7 +36,7 @@ flowchart LR
     G --> O[Answer + Sources + Confidence]
 ```
 
-More detail: [`docs/system-design.md`](docs/system-design.md). Data schema: [`docs/data-schema.md`](docs/data-schema.md).
+Visual diagram: [`docs/system-design.svg`](docs/system-design.svg). More detail: [`docs/system-design.md`](docs/system-design.md). Data schema: [`docs/data-schema.md`](docs/data-schema.md).
 
 ## Why this is not just vector search -> LLM
 
@@ -166,7 +166,7 @@ Run:
 python eval/evaluate.py
 ```
 
-The automated runner measures **Retrieval Hit@3** and **Escalation accuracy**.
+The automated runner measures **Retrieval Hit@3**, **Escalation accuracy**, **Escalation precision**, and **Escalation recall**, then writes a detailed machine-readable report to `eval/latest_report.json`.
 
 For answer quality I would maintain a human-labelled test set and track:
 
@@ -215,3 +215,37 @@ The included tests check corpus completeness, stale refund-language detection, m
 ## Known limitations
 
 This is intentionally a focused take-home prototype, not a complete support platform. There is no hybrid retrieval, cross-encoder reranking, persistent chat store, admin ingestion UI or helpdesk-ticket integration. Those are deliberate trade-offs to keep the implementation easy to run, inspect and reason about.
+
+## Reviewer quick check
+
+A reviewer can verify the repository without an LLM key:
+
+```bash
+pip install pydantic pydantic-settings pytest
+pytest -q
+python scripts/smoke_check.py
+```
+
+For full retrieval + UI:
+
+```bash
+pip install -r requirements.txt
+streamlit run streamlit_app.py
+```
+
+For the labelled benchmark:
+
+```bash
+python eval/evaluate.py
+```
+
+The GitHub Actions workflow in `.github/workflows/ci.yml` runs the lightweight unit suite automatically on pushes and pull requests.
+
+## Reliability choices added after baseline
+
+- Wider dense candidate retrieval followed by transparent lexical + authority + freshness re-ranking.
+- Provider timeout and graceful extractive fallback instead of a hard failure.
+- Policy-sensitive questions are not answered from historical ticket evidence alone.
+- Purchase-specific webpage/checkout wording triggers human verification rather than being overridden by the general policy.
+- Citation filtering prevents weak neighboring chunks from appearing as supporting sources.
+- A checked-in SVG architecture diagram makes the end-to-end design visible without needing Mermaid rendering.
